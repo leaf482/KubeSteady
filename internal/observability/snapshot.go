@@ -1,6 +1,7 @@
 package observability
 
 import (
+	"sync"
 	"time"
 
 	"kubesteady/internal/metrics"
@@ -21,13 +22,29 @@ type SystemSnapshot struct {
 }
 
 type SnapshotStore struct {
+	mu      sync.RWMutex
 	current SystemSnapshot
 }
 
 func (s *SnapshotStore) Update(snapshot SystemSnapshot) {
-	s.current = snapshot
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.current = cloneSnapshot(snapshot)
 }
 
 func (s *SnapshotStore) Get() SystemSnapshot {
-	return s.current
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return cloneSnapshot(s.current)
+}
+
+func cloneSnapshot(snapshot SystemSnapshot) SystemSnapshot {
+	return SystemSnapshot{
+		Timestamp:       snapshot.Timestamp,
+		Pods:            snapshot.Pods,
+		SmoothedCPU:     append([]metrics.SmoothedCPUUsage(nil), snapshot.SmoothedCPU...),
+		Recommendations: append([]optimizer.Recommendation(nil), snapshot.Recommendations...),
+		Validated:       append([]optimizer.ValidatedRecommendation(nil), snapshot.Validated...),
+		Rollbacks:       append([]optimizer.EvaluationResult(nil), snapshot.Rollbacks...),
+	}
 }

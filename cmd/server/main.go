@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
 	"os/signal"
 	"syscall"
 	"time"
@@ -29,6 +32,13 @@ func main() {
 	evaluator := optimizer.Evaluator{}
 	snapshots := &observability.SnapshotStore{}
 
+	mux := http.NewServeMux()
+	mux.HandleFunc("/snapshot", handleSnapshot(snapshots))
+	httpServer := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
 	ticker := time.NewTicker(cfg.PollInterval)
 	defer ticker.Stop()
 
@@ -36,11 +46,21 @@ func main() {
 
 	logger.Info("server starting")
 	logger.Info("configuration loaded", "prometheus_url", cfg.PrometheusURL, "poll_interval", cfg.PollInterval.String())
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("http server failed", "error", err)
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			logger.Info("shutdown requested")
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := httpServer.Shutdown(shutdownCtx); err != nil {
+				logger.Error("http shutdown failed", "error", err)
+			}
 			logger.Info("server stopped")
 			return
 		case <-ticker.C:
@@ -104,10 +124,10 @@ func main() {
 			snapshots.Update(observability.SystemSnapshot{
 				Timestamp:       time.Now(),
 				Pods:            len(smoothed),
-				SmoothedCPU:     append([]metrics.SmoothedCPUUsage(nil), smoothed...),
-				Recommendations: append([]optimizer.Recommendation(nil), recs...),
-				Validated:       append([]optimizer.ValidatedRecommendation(nil), cooled...),
-				Rollbacks:       append([]optimizer.EvaluationResult(nil), evals...),
+				SmoothedCPU:     smoothed,
+				Recommendations: recs,
+				Validated:       cooled,
+				Rollbacks:       evals,
 			})
 
 			logger.Info(
@@ -126,4 +146,24 @@ func main() {
 		}
 	}
 
+}
+
+func handleSnapshot(store *observability.SnapshotStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		snapshot := store.Get()
+		if snapshot.Timestamp.IsZero() {
+			snapshot.Timestamp = time.Now()
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(snapshot); err != nil {
+			http.Error(w, "failed to encode snapshot", http.StatusInternalServerError)
+			return
+		}
+	}
 }
