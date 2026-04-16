@@ -2,6 +2,7 @@ package optimizer
 
 import (
 	"sort"
+	"time"
 
 	"kubesteady/internal/metrics"
 )
@@ -24,6 +25,22 @@ type ValidatedRecommendation struct {
 
 type Recommender struct{}
 type Validator struct{}
+
+type CooldownManager struct {
+	window     time.Duration
+	lastAction map[string]time.Time
+}
+
+func NewCooldownManager(window time.Duration) *CooldownManager {
+	if window <= 0 {
+		window = 2 * time.Minute
+	}
+
+	return &CooldownManager{
+		window:     window,
+		lastAction: make(map[string]time.Time),
+	}
+}
 
 func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *metrics.Aggregator) []Recommendation {
 	recommendations := make([]Recommendation, 0, len(usages))
@@ -96,4 +113,38 @@ func (v Validator) Validate(recs []Recommendation) []ValidatedRecommendation {
 	}
 
 	return validated
+}
+
+func (c *CooldownManager) ApplyCooldown(recs []ValidatedRecommendation) []ValidatedRecommendation {
+	now := time.Now()
+	result := make([]ValidatedRecommendation, 0, len(recs))
+
+	for _, rec := range recs {
+		updated := rec
+
+		if rec.Action == "no_op" {
+			result = append(result, updated)
+			continue
+		}
+
+		last, ok := c.lastAction[rec.Pod]
+		if !ok {
+			c.lastAction[rec.Pod] = now
+			result = append(result, updated)
+			continue
+		}
+
+		if now.Sub(last) < c.window {
+			updated.Action = "no_op"
+			updated.Valid = false
+			updated.ValidationReason = "cooldown active"
+			result = append(result, updated)
+			continue
+		}
+
+		c.lastAction[rec.Pod] = now
+		result = append(result, updated)
+	}
+
+	return result
 }
