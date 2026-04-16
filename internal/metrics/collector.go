@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"time"
 
@@ -18,6 +19,85 @@ const podCPUQuery = `sum(rate(container_cpu_usage_seconds_total{pod!=""}[5m])) b
 type PodCPUUsage struct {
 	Pod string
 	CPU float64
+}
+
+type WindowedCPUUsage struct {
+	Pod    string
+	AvgCPU float64
+}
+
+type Aggregator struct {
+	window time.Duration
+	data   map[string][]entry
+}
+
+type entry struct {
+	ts  time.Time
+	cpu float64
+}
+
+func NewAggregator(window time.Duration) *Aggregator {
+	if window <= 0 {
+		window = 5 * time.Minute
+	}
+
+	return &Aggregator{
+		window: window,
+		data:   make(map[string][]entry),
+	}
+}
+
+func (a *Aggregator) Aggregate(usages []PodCPUUsage) []WindowedCPUUsage {
+	now := time.Now()
+	cutoff := now.Add(-a.window)
+
+	for pod, points := range a.data {
+		filtered := points[:0]
+		for _, p := range points {
+			if !p.ts.Before(cutoff) {
+				filtered = append(filtered, p)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(a.data, pod)
+			continue
+		}
+		a.data[pod] = filtered
+	}
+
+	for _, usage := range usages {
+		if usage.Pod == "" {
+			continue
+		}
+		a.data[usage.Pod] = append(a.data[usage.Pod], entry{
+			ts:  now,
+			cpu: usage.CPU,
+		})
+	}
+
+	pods := make([]string, 0, len(a.data))
+	for pod := range a.data {
+		pods = append(pods, pod)
+	}
+	sort.Strings(pods)
+
+	out := make([]WindowedCPUUsage, 0, len(pods))
+	for _, pod := range pods {
+		points := a.data[pod]
+		if len(points) == 0 {
+			continue
+		}
+		var total float64
+		for _, p := range points {
+			total += p.cpu
+		}
+		out = append(out, WindowedCPUUsage{
+			Pod:    pod,
+			AvgCPU: total / float64(len(points)),
+		})
+	}
+
+	return out
 }
 
 // Collector defines the contract for future metrics collection integrations.
