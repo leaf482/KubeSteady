@@ -29,7 +29,9 @@ type EvaluationResult struct {
 	Reason         string
 }
 
-type Recommender struct{}
+type Recommender struct {
+	LatencyMode bool
+}
 type Validator struct{}
 type Evaluator struct{}
 
@@ -60,12 +62,25 @@ func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *me
 		action := "no_op"
 		reason := "within threshold"
 
-		if usage.CPU > 0.75 {
-			action = "scale_up"
-			reason = "cpu high"
-		} else if usage.CPU < 0.25 {
-			action = "scale_down"
-			reason = "cpu low"
+		if r.LatencyMode {
+			if usage.CPU > 0.5 {
+				action = "scale_up"
+				reason = "high latency"
+			} else if usage.CPU < 0.2 {
+				action = "no_op"
+				reason = "latency healthy"
+			} else {
+				action = "no_op"
+				reason = "latency stable"
+			}
+		} else {
+			if usage.CPU > 0.75 {
+				action = "scale_up"
+				reason = "cpu high"
+			} else if usage.CPU < 0.25 {
+				action = "scale_down"
+				reason = "cpu low"
+			}
 		}
 
 		confidence := confidenceFromVariance(variances[usage.Pod])

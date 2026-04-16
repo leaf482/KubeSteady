@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -74,6 +75,7 @@ func main() {
 
 			windowed := aggregator.Aggregate(podCPU)
 			smoothed := smoother.Smooth(windowed)
+			recommender.LatencyMode = collector.DataSource() == "prometheus" && strings.Contains(strings.ToLower(cfg.PrometheusQuery), "probe_duration_seconds")
 			recs := recommender.Recommend(smoothed, aggregator)
 			validated := validator.Validate(recs)
 			cooled := cooldown.ApplyCooldown(validated)
