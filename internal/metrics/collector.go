@@ -26,9 +26,19 @@ type WindowedCPUUsage struct {
 	AvgCPU float64
 }
 
+type SmoothedCPUUsage struct {
+	Pod string
+	CPU float64
+}
+
 type Aggregator struct {
 	window time.Duration
 	data   map[string][]entry
+}
+
+type Smoother struct {
+	alpha float64
+	state map[string]float64
 }
 
 type entry struct {
@@ -44,6 +54,17 @@ func NewAggregator(window time.Duration) *Aggregator {
 	return &Aggregator{
 		window: window,
 		data:   make(map[string][]entry),
+	}
+}
+
+func NewSmoother(alpha float64) *Smoother {
+	if alpha <= 0 || alpha > 1 {
+		alpha = 0.3
+	}
+
+	return &Smoother{
+		alpha: alpha,
+		state: make(map[string]float64),
 	}
 }
 
@@ -94,6 +115,30 @@ func (a *Aggregator) Aggregate(usages []PodCPUUsage) []WindowedCPUUsage {
 		out = append(out, WindowedCPUUsage{
 			Pod:    pod,
 			AvgCPU: total / float64(len(points)),
+		})
+	}
+
+	return out
+}
+
+func (s *Smoother) Smooth(usages []WindowedCPUUsage) []SmoothedCPUUsage {
+	out := make([]SmoothedCPUUsage, 0, len(usages))
+	for _, usage := range usages {
+		if usage.Pod == "" {
+			continue
+		}
+
+		current := usage.AvgCPU
+		smoothed := current
+
+		if prev, ok := s.state[usage.Pod]; ok {
+			smoothed = (s.alpha * current) + ((1 - s.alpha) * prev)
+		}
+
+		s.state[usage.Pod] = smoothed
+		out = append(out, SmoothedCPUUsage{
+			Pod: usage.Pod,
+			CPU: smoothed,
 		})
 	}
 
