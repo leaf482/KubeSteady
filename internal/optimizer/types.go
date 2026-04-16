@@ -7,15 +7,20 @@ import (
 )
 
 type Recommendation struct {
-	Pod    string
-	Action string // "scale_up" | "scale_down" | "no_op"
-	Reason string
+	Pod        string
+	Action     string // "scale_up" | "scale_down" | "no_op"
+	Reason     string
+	Confidence float64
 }
 
 type Recommender struct{}
 
-func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage) []Recommendation {
+func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *metrics.Aggregator) []Recommendation {
 	recommendations := make([]Recommendation, 0, len(usages))
+	variances := map[string]float64{}
+	if aggregator != nil {
+		variances = aggregator.VarianceByPod()
+	}
 
 	for _, usage := range usages {
 		action := "no_op"
@@ -29,10 +34,12 @@ func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage) []Recommendati
 			reason = "cpu low"
 		}
 
+		confidence := confidenceFromVariance(variances[usage.Pod])
 		recommendations = append(recommendations, Recommendation{
-			Pod:    usage.Pod,
-			Action: action,
-			Reason: reason,
+			Pod:        usage.Pod,
+			Action:     action,
+			Reason:     reason,
+			Confidence: confidence,
 		})
 	}
 
@@ -41,4 +48,14 @@ func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage) []Recommendati
 	})
 
 	return recommendations
+}
+
+func confidenceFromVariance(variance float64) float64 {
+	if variance < 0.01 {
+		return 0.9
+	}
+	if variance < 0.05 {
+		return 0.7
+	}
+	return 0.4
 }

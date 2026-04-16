@@ -121,6 +121,14 @@ func (a *Aggregator) Aggregate(usages []PodCPUUsage) []WindowedCPUUsage {
 	return out
 }
 
+func (a *Aggregator) VarianceByPod() map[string]float64 {
+	variances := make(map[string]float64, len(a.data))
+	for pod, points := range a.data {
+		variances[pod] = computeVariance(points)
+	}
+	return variances
+}
+
 func (s *Smoother) Smooth(usages []WindowedCPUUsage) []SmoothedCPUUsage {
 	out := make([]SmoothedCPUUsage, 0, len(usages))
 	for _, usage := range usages {
@@ -143,6 +151,26 @@ func (s *Smoother) Smooth(usages []WindowedCPUUsage) []SmoothedCPUUsage {
 	}
 
 	return out
+}
+
+func computeVariance(entries []entry) float64 {
+	if len(entries) == 0 {
+		return 0
+	}
+
+	var sum float64
+	for _, point := range entries {
+		sum += point.cpu
+	}
+	mean := sum / float64(len(entries))
+
+	var squaredDiffSum float64
+	for _, point := range entries {
+		diff := point.cpu - mean
+		squaredDiffSum += diff * diff
+	}
+
+	return squaredDiffSum / float64(len(entries))
 }
 
 // Collector defines the contract for future metrics collection integrations.
