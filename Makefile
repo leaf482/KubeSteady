@@ -3,7 +3,7 @@ FRONTEND_PID_FILE := .frontend.pid
 LOG_DIR := logs
 
 PROMETHEUS_URL ?= http://127.0.0.1:9090
-PROMETHEUS_QUERY ?= avg_over_time(probe_duration_seconds{job="blackbox-http"}[5m])
+PROMETHEUS_QUERY ?= avg_over_time(probe_duration_seconds[5m])
 POLL_INTERVAL ?= 30s
 LOG_LEVEL ?= info
 
@@ -32,7 +32,7 @@ monitoring-down:
 	@docker compose -f monitoring/docker-compose.yml down
 
 backend-up:
-	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$targetPid = ''; if (Test-Path '$(BACKEND_PID_FILE)') { $$targetPid = (Get-Content '$(BACKEND_PID_FILE)' | Select-Object -First 1).Trim() }; if ($$targetPid -and (Get-Process -Id $$targetPid -ErrorAction SilentlyContinue)) { Write-Host \"backend already running (PID=$$targetPid)\"; exit 0 }; New-Item -ItemType Directory -Path '$(LOG_DIR)' -Force | Out-Null; $$cmd = '$$env:PROMETHEUS_URL=\"$(PROMETHEUS_URL)\"; $$env:PROMETHEUS_QUERY=''$(PROMETHEUS_QUERY)''; $$env:POLL_INTERVAL=\"$(POLL_INTERVAL)\"; $$env:LOG_LEVEL=\"$(LOG_LEVEL)\"; go run .\cmd\server\main.go'; $$proc = Start-Process powershell -ArgumentList \"-NoProfile -ExecutionPolicy Bypass -Command $$cmd\" -WorkingDirectory \"$(CURDIR)\" -RedirectStandardOutput \"$(BACKEND_OUT_LOG_FILE)\" -RedirectStandardError \"$(BACKEND_ERR_LOG_FILE)\" -PassThru; if (-not $$proc) { throw 'failed to start backend process' }; $$proc.Id | Out-File '$(BACKEND_PID_FILE)' -Encoding ascii; Write-Host \"backend started (PID=$$($$proc.Id))\""
+	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$targetPid = ''; if (Test-Path '$(BACKEND_PID_FILE)') { $$targetPid = (Get-Content '$(BACKEND_PID_FILE)' | Select-Object -First 1).Trim() }; if ($$targetPid -and (Get-Process -Id $$targetPid -ErrorAction SilentlyContinue)) { Write-Host \"backend already running (PID=$$targetPid)\"; exit 0 }; New-Item -ItemType Directory -Path '$(LOG_DIR)' -Force | Out-Null; $$cmd = '$$env:PROMETHEUS_URL=''$(PROMETHEUS_URL)''; $$env:PROMETHEUS_QUERY=''$(PROMETHEUS_QUERY)''; $$env:POLL_INTERVAL=''$(POLL_INTERVAL)''; $$env:LOG_LEVEL=''$(LOG_LEVEL)''; go run .\cmd\server\main.go'; $$proc = Start-Process powershell -ArgumentList \"-NoProfile -ExecutionPolicy Bypass -Command $$cmd\" -WorkingDirectory \"$(CURDIR)\" -RedirectStandardOutput \"$(BACKEND_OUT_LOG_FILE)\" -RedirectStandardError \"$(BACKEND_ERR_LOG_FILE)\" -PassThru; if (-not $$proc) { throw 'failed to start backend process' }; $$proc.Id | Out-File '$(BACKEND_PID_FILE)' -Encoding ascii; Write-Host \"backend started (PID=$$($$proc.Id))\""
 
 backend-down:
 	@powershell -NoProfile -ExecutionPolicy Bypass -Command "$$targetPid = ''; if (Test-Path '$(BACKEND_PID_FILE)') { $$targetPid = (Get-Content '$(BACKEND_PID_FILE)' | Select-Object -First 1).Trim() }; if ($$targetPid -and (Get-Process -Id $$targetPid -ErrorAction SilentlyContinue)) { Stop-Process -Id $$targetPid -Force; Write-Host \"backend stopped (PID=$$targetPid)\" } else { Write-Host 'backend already stopped' }; Remove-Item '$(BACKEND_PID_FILE)' -ErrorAction SilentlyContinue; exit 0"
