@@ -7,12 +7,14 @@ import (
 
 const (
 	defaultPrometheusURL = "http://localhost:9090"
+	defaultPrometheusQuery = `sum(rate(container_cpu_usage_seconds_total{pod!=""}[5m])) by (pod)`
 	defaultPollInterval  = 30 * time.Second
 	defaultLogLevel      = "info"
 )
 
 type Config struct {
 	PrometheusURL string
+	PrometheusQuery string
 	PollInterval  time.Duration
 	LogLevel      string
 }
@@ -20,6 +22,7 @@ type Config struct {
 func Load() Config {
 	cfg := Config{
 		PrometheusURL: getEnv("PROMETHEUS_URL", defaultPrometheusURL),
+		PrometheusQuery: getEnv("PROMETHEUS_QUERY", defaultPrometheusQuery),
 		LogLevel:      getEnv("LOG_LEVEL", defaultLogLevel),
 		PollInterval:  defaultPollInterval,
 	}

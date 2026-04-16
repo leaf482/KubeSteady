@@ -12,8 +12,6 @@ import (
 	"kubesteady/internal/config"
 )
 
-const podCPUQuery = `sum(rate(container_cpu_usage_seconds_total{pod!=""}[5m])) by (pod)`
-
 type PodCPUUsage struct {
 	Pod string
 	CPU float64
@@ -178,6 +176,7 @@ type Collector interface {
 
 type PrometheusCollector struct {
 	baseURL        string
+	query          string
 	client         *http.Client
 	lastDataSource string
 }
@@ -191,6 +190,7 @@ var mockPodCPUUsage = []PodCPUUsage{
 func NewPrometheusCollector(cfg config.Config) *PrometheusCollector {
 	return &PrometheusCollector{
 		baseURL: cfg.PrometheusURL,
+		query:   cfg.PrometheusQuery,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -212,7 +212,7 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 	endpoint.Path = "/api/v1/query"
 
 	params := endpoint.Query()
-	params.Set("query", podCPUQuery)
+	params.Set("query", c.query)
 	endpoint.RawQuery = params.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
@@ -238,9 +238,7 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 		Data   struct {
 			ResultType string `json:"resultType"`
 			Result     []struct {
-				Metric struct {
-					Pod string `json:"pod"`
-				} `json:"metric"`
+				Metric map[string]string `json:"metric"`
 				Value []any `json:"value"`
 			} `json:"result"`
 		} `json:"data"`
@@ -262,7 +260,8 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 
 	usages := make([]PodCPUUsage, 0, len(payload.Data.Result))
 	for _, item := range payload.Data.Result {
-		if item.Metric.Pod == "" || len(item.Value) < 2 {
+		podName := podNameFromMetric(item.Metric)
+		if podName == "" || len(item.Value) < 2 {
 			c.lastDataSource = "mock"
 			return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 		}
@@ -280,7 +279,7 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 		}
 
 		usages = append(usages, PodCPUUsage{
-			Pod: item.Metric.Pod,
+			Pod: podName,
 			CPU: cpu,
 		})
 	}
@@ -291,4 +290,17 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 
 func (c *PrometheusCollector) DataSource() string {
 	return c.lastDataSource
+}
+
+func podNameFromMetric(metric map[string]string) string {
+	if pod := metric["pod"]; pod != "" {
+		return pod
+	}
+	if instance := metric["instance"]; instance != "" {
+		return instance
+	}
+	if target := metric["target"]; target != "" {
+		return target
+	}
+	return ""
 }
