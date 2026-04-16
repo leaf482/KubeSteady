@@ -13,7 +13,17 @@ type Recommendation struct {
 	Confidence float64
 }
 
+type ValidatedRecommendation struct {
+	Pod              string
+	Action           string
+	Reason           string
+	Confidence       float64
+	Valid            bool
+	ValidationReason string
+}
+
 type Recommender struct{}
+type Validator struct{}
 
 func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *metrics.Aggregator) []Recommendation {
 	recommendations := make([]Recommendation, 0, len(usages))
@@ -58,4 +68,32 @@ func confidenceFromVariance(variance float64) float64 {
 		return 0.7
 	}
 	return 0.4
+}
+
+func (v Validator) Validate(recs []Recommendation) []ValidatedRecommendation {
+	validated := make([]ValidatedRecommendation, 0, len(recs))
+
+	for _, rec := range recs {
+		result := ValidatedRecommendation{
+			Pod:        rec.Pod,
+			Action:     rec.Action,
+			Reason:     rec.Reason,
+			Confidence: rec.Confidence,
+			Valid:      true,
+		}
+
+		if rec.Confidence < 0.5 {
+			result.Valid = false
+			result.Action = "no_op"
+			result.ValidationReason = "low confidence"
+		} else if rec.Action == "scale_down" && rec.Confidence < 0.7 {
+			result.Valid = false
+			result.Action = "no_op"
+			result.ValidationReason = "unsafe scale down"
+		}
+
+		validated = append(validated, result)
+	}
+
+	return validated
 }
