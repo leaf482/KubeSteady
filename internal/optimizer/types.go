@@ -23,8 +23,15 @@ type ValidatedRecommendation struct {
 	ValidationReason string
 }
 
+type EvaluationResult struct {
+	Pod            string
+	ShouldRollback bool
+	Reason         string
+}
+
 type Recommender struct{}
 type Validator struct{}
+type Evaluator struct{}
 
 type CooldownManager struct {
 	window     time.Duration
@@ -147,4 +154,73 @@ func (c *CooldownManager) ApplyCooldown(recs []ValidatedRecommendation) []Valida
 	}
 
 	return result
+}
+
+func (e Evaluator) Evaluate(pre []metrics.SmoothedCPUUsage, post []metrics.SmoothedCPUUsage) []EvaluationResult {
+	preByPod := make(map[string]float64, len(pre))
+	postByPod := make(map[string]float64, len(post))
+	podSet := make(map[string]struct{}, len(pre)+len(post))
+
+	for _, usage := range pre {
+		if usage.Pod == "" {
+			continue
+		}
+		preByPod[usage.Pod] = usage.CPU
+		podSet[usage.Pod] = struct{}{}
+	}
+
+	for _, usage := range post {
+		if usage.Pod == "" {
+			continue
+		}
+		postByPod[usage.Pod] = usage.CPU
+		podSet[usage.Pod] = struct{}{}
+	}
+
+	pods := make([]string, 0, len(podSet))
+	for pod := range podSet {
+		pods = append(pods, pod)
+	}
+	sort.Strings(pods)
+
+	results := make([]EvaluationResult, 0, len(pods))
+	for _, pod := range pods {
+		preCPU, hasPre := preByPod[pod]
+		postCPU, hasPost := postByPod[pod]
+
+		if !hasPre || !hasPost {
+			results = append(results, EvaluationResult{
+				Pod:            pod,
+				ShouldRollback: false,
+				Reason:         "missing metrics",
+			})
+			continue
+		}
+
+		if postCPU > preCPU*1.2 {
+			results = append(results, EvaluationResult{
+				Pod:            pod,
+				ShouldRollback: true,
+				Reason:         "cpu increased",
+			})
+			continue
+		}
+
+		if postCPU < preCPU*0.8 {
+			results = append(results, EvaluationResult{
+				Pod:            pod,
+				ShouldRollback: false,
+				Reason:         "improved",
+			})
+			continue
+		}
+
+		results = append(results, EvaluationResult{
+			Pod:            pod,
+			ShouldRollback: false,
+			Reason:         "no significant change",
+		})
+	}
+
+	return results
 }
