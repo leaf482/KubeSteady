@@ -1,0 +1,14 @@
+time=2026-04-16T00:29:59.673-07:00 level=INFO msg="server starting"
+time=2026-04-16T00:29:59.681-07:00 level=INFO msg="configuration loaded" prometheus_url=http://localhost:9090 poll_interval=30s
+time=2026-04-16T00:29:59.686-07:00 level=ERROR msg="http server failed" error="listen tcp :8080: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted."
+time=2026-04-16T00:30:29.673-07:00 level=INFO msg="tick start"
+time=2026-04-16T00:30:29.683-07:00 level=INFO msg="tick complete" pods_processed=3 avg_cpu=0.5466666666666667 high_cpu_pods=1 low_cpu_pods=1 scale_up=1 scale_down=1 no_op=1 rollback_triggers=0
+time=2026-04-16T00:30:59.673-07:00 level=INFO msg="tick start"
+time=2026-04-16T00:30:59.675-07:00 level=INFO msg="tick complete" pods_processed=3 avg_cpu=0.5466666666666666 high_cpu_pods=1 low_cpu_pods=1 scale_up=0 scale_down=0 no_op=3 rollback_triggers=0
+time=2026-04-16T00:31:29.673-07:00 level=INFO msg="tick start"
+time=2026-04-16T00:31:29.676-07:00 level=INFO msg="tick complete" pods_processed=3 avg_cpu=0.5466666666666666 high_cpu_pods=1 low_cpu_pods=1 scale_up=0 scale_down=0 no_op=3 rollback_triggers=0
+time=2026-04-16T00:31:31.239-07:00 level=INFO msg="shutdown requested"
+time=2026-04-16T00:31:31.239-07:00 level=INFO msg="server stopped"
+00:31:12.709-07:00 level=INFO msg="tick complete" pods_processed=3 avg_cpu=0.5466666666666667 high_cpu_pods=1 low_cpu_pods=1 scale_up=0 scale_down=0 no_op=3 rollback_triggers=0
+time=2026-04-16T00:31:31.663-07:00 level=INFO msg="shutdown requested"
+time=2026-04-16T00:31:31.663-07:00 level=INFO msg="server stopped"

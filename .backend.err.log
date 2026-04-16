@@ -1,0 +1,25 @@
+http://127.0.0.1:9090 : The term 'http://127.0.0.1:9090' is not recognized as the name of a cmdlet, function, script 
+file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct 
+and try again.
+At line:1 char:21
++ $env:PROMETHEUS_URL=http://127.0.0.1:9090; $env:PROMETHEUS_QUERY='avg ...
++                     ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (http://127.0.0.1:9090:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+30s : The term '30s' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the 
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:149
++ ... tion_seconds{job=blackbox-http}[5m])'; $env:POLL_INTERVAL=30s; $env:L ...
++                                                               ~~~
+    + CategoryInfo          : ObjectNotFound: (30s:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+info : The term 'info' is not recognized as the name of a cmdlet, function, script file, or operable program. Check 
+the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:169
++ ... kbox-http}[5m])'; $env:POLL_INTERVAL=30s; $env:LOG_LEVEL=info; go run ...
++                                                              ~~~~
+    + CategoryInfo          : ObjectNotFound: (info:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
