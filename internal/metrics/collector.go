@@ -3,8 +3,6 @@ package metrics
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -179,8 +177,9 @@ type Collector interface {
 }
 
 type PrometheusCollector struct {
-	baseURL string
-	client  *http.Client
+	baseURL        string
+	client         *http.Client
+	lastDataSource string
 }
 
 var mockPodCPUUsage = []PodCPUUsage{
@@ -195,17 +194,20 @@ func NewPrometheusCollector(cfg config.Config) *PrometheusCollector {
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		lastDataSource: "mock",
 	}
 }
 
 func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error) {
 	if c.baseURL == "" {
-		return nil, errors.New("prometheus url is empty")
+		c.lastDataSource = "mock"
+		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 	}
 
 	endpoint, err := url.Parse(c.baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid prometheus url: %w", err)
+		c.lastDataSource = "mock"
+		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 	}
 	endpoint.Path = "/api/v1/query"
 
@@ -215,16 +217,19 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("build request: %w", err)
+		c.lastDataSource = "mock"
+		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
+		c.lastDataSource = "mock"
 		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		c.lastDataSource = "mock"
 		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 	}
 
@@ -242,27 +247,36 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return nil, fmt.Errorf("decode prometheus response: %w", err)
+		c.lastDataSource = "mock"
+		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 	}
 
 	if payload.Status != "success" || payload.Data.ResultType != "vector" {
-		return nil, errors.New("invalid prometheus response")
+		c.lastDataSource = "mock"
+		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+	}
+	if len(payload.Data.Result) == 0 {
+		c.lastDataSource = "mock"
+		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 	}
 
 	usages := make([]PodCPUUsage, 0, len(payload.Data.Result))
 	for _, item := range payload.Data.Result {
 		if item.Metric.Pod == "" || len(item.Value) < 2 {
-			return nil, errors.New("invalid prometheus response")
+			c.lastDataSource = "mock"
+			return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 		}
 
 		valueRaw, ok := item.Value[1].(string)
 		if !ok {
-			return nil, errors.New("invalid prometheus response")
+			c.lastDataSource = "mock"
+			return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 		}
 
 		cpu, err := strconv.ParseFloat(valueRaw, 64)
 		if err != nil {
-			return nil, fmt.Errorf("parse cpu value: %w", err)
+			c.lastDataSource = "mock"
+			return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
 		}
 
 		usages = append(usages, PodCPUUsage{
@@ -271,5 +285,10 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 		})
 	}
 
+	c.lastDataSource = "prometheus"
 	return usages, nil
+}
+
+func (c *PrometheusCollector) DataSource() string {
+	return c.lastDataSource
 }

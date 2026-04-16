@@ -124,6 +124,7 @@ func main() {
 			snapshots.Update(observability.SystemSnapshot{
 				Timestamp:       time.Now(),
 				Pods:            len(smoothed),
+				DataSource:      collector.DataSource(),
 				SmoothedCPU:     smoothed,
 				Recommendations: recs,
 				Validated:       cooled,

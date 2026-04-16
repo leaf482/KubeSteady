@@ -38,6 +38,8 @@ function App() {
   const recommendations = snapshot?.Recommendations ?? []
   const validated = snapshot?.Validated ?? []
   const rollbacks = snapshot?.Rollbacks ?? []
+  const dataSource = (snapshot?.DataSource || 'unknown').toLowerCase()
+  const isMockSource = dataSource === 'mock'
 
   const avgCPU = useMemo(() => {
     if (smoothed.length === 0) return 0
@@ -79,6 +81,15 @@ function App() {
             <p>Pods: <span className="font-medium text-white">{snapshot?.Pods ?? 0}</span></p>
             <p>Snapshot Time: <span className="font-medium text-white">{snapshot?.Timestamp || 'n/a'}</span></p>
             <p>Frontend Updated: <span className="font-medium text-white">{lastUpdated || 'n/a'}</span></p>
+          </div>
+          <div className="mt-3">
+            <p className={`inline-flex rounded px-2 py-1 text-xs font-semibold ${
+              isMockSource
+                ? 'bg-rose-900/70 text-rose-200 border border-rose-500/40'
+                : 'bg-emerald-900/50 text-emerald-200 border border-emerald-500/40'
+            }`}>
+              Data Source: {(snapshot?.DataSource || 'UNKNOWN').toUpperCase()}
+            </p>
           </div>
           {error ? <p className="mt-2 text-sm text-rose-400">Error: {error}</p> : null}
         </section>
