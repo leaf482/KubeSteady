@@ -46,10 +46,11 @@ func main() {
 	var previousSmoothed []metrics.SmoothedCPUUsage
 
 	logger.Info("server starting")
-	logger.Info("configuration loaded", "prometheus_url", cfg.PrometheusURL, "poll_interval", cfg.PollInterval.String())
+	logger.Info("configuration loaded", "prometheus_url", cfg.PrometheusURL, "prometheus_query", cfg.PrometheusQuery, "poll_interval", cfg.PollInterval.String())
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("http server failed", "error", err)
+			stop()
 		}
 	}()
 
@@ -72,10 +73,17 @@ func main() {
 				logger.Error("collect failed", "error", err)
 				continue
 			}
+			if collector.DataSource() == "mock" {
+				logger.Warn("using mock metrics", "reason", collector.FallbackReason())
+			}
 
 			windowed := aggregator.Aggregate(podCPU)
 			smoothed := smoother.Smooth(windowed)
 			recommender.LatencyMode = collector.DataSource() == "prometheus" && strings.Contains(strings.ToLower(cfg.PrometheusQuery), "probe_duration_seconds")
+			signal := "cpu"
+			if recommender.LatencyMode {
+				signal = "latency"
+			}
 			recs := recommender.Recommend(smoothed, aggregator)
 			validated := validator.Validate(recs)
 			cooled := cooldown.ApplyCooldown(validated)
@@ -105,16 +113,23 @@ func main() {
 				}
 			}
 
+			highThreshold := 0.75
+			lowThreshold := 0.25
+			if recommender.LatencyMode {
+				highThreshold = 0.5
+				lowThreshold = 0.2
+			}
+
 			var totalCPU float64
-			highCPUCount := 0
-			lowCPUCount := 0
+			highCount := 0
+			lowCount := 0
 			for _, usage := range smoothed {
 				totalCPU += usage.CPU
-				if usage.CPU > 0.75 {
-					highCPUCount++
+				if usage.CPU > highThreshold {
+					highCount++
 				}
-				if usage.CPU < 0.25 {
-					lowCPUCount++
+				if usage.CPU < lowThreshold {
+					lowCount++
 				}
 			}
 
@@ -127,6 +142,7 @@ func main() {
 				Timestamp:       time.Now(),
 				Pods:            len(smoothed),
 				DataSource:      collector.DataSource(),
+				Signal:          signal,
 				SmoothedCPU:     smoothed,
 				Recommendations: recs,
 				Validated:       cooled,
@@ -136,9 +152,10 @@ func main() {
 			logger.Info(
 				"tick complete",
 				"pods_processed", len(smoothed),
-				"avg_cpu", avgCPU,
-				"high_cpu_pods", highCPUCount,
-				"low_cpu_pods", lowCPUCount,
+				"signal", signal,
+				"avg_value", avgCPU,
+				"high_signal", highCount,
+				"low_signal", lowCount,
 				"scale_up", scaleUp,
 				"scale_down", scaleDown,
 				"no_op", noOp,

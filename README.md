@@ -134,6 +134,8 @@ make restart
 make status
 ```
 
+`make down` also releases leftover listeners on ports `8080` and `5173`, including backends started manually in a closed terminal.
+
 What `make up` starts:
 
 - Prometheus + Blackbox Exporter (`monitoring/docker-compose.yml`)

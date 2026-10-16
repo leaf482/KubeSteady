@@ -83,7 +83,10 @@ func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *me
 			}
 		}
 
-		confidence := confidenceFromVariance(variances[usage.Pod])
+		confidence := 0.4
+		if variance, ok := variances[usage.Pod]; ok {
+			confidence = confidenceFromVariance(variance)
+		}
 		recommendations = append(recommendations, Recommendation{
 			Pod:        usage.Pod,
 			Action:     action,

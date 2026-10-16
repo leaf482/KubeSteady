@@ -146,6 +146,16 @@ func (s *Smoother) Smooth(usages []WindowedCPUUsage) []SmoothedCPUUsage {
 		})
 	}
 
+	seen := make(map[string]struct{}, len(out))
+	for _, usage := range out {
+		seen[usage.Pod] = struct{}{}
+	}
+	for pod := range s.state {
+		if _, ok := seen[pod]; !ok {
+			delete(s.state, pod)
+		}
+	}
+
 	return out
 }
 
@@ -175,10 +185,11 @@ type Collector interface {
 }
 
 type PrometheusCollector struct {
-	baseURL        string
-	query          string
-	client         *http.Client
-	lastDataSource string
+	baseURL            string
+	query              string
+	client             *http.Client
+	lastDataSource     string
+	lastFallbackReason string
 }
 
 var mockPodCPUUsage = []PodCPUUsage{
@@ -198,16 +209,20 @@ func NewPrometheusCollector(cfg config.Config) *PrometheusCollector {
 	}
 }
 
+func (c *PrometheusCollector) useMock(reason string) ([]PodCPUUsage, error) {
+	c.lastDataSource = "mock"
+	c.lastFallbackReason = reason
+	return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+}
+
 func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error) {
 	if c.baseURL == "" {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("empty prometheus url")
 	}
 
 	endpoint, err := url.Parse(c.baseURL)
 	if err != nil {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("invalid prometheus url")
 	}
 	endpoint.Path = "/api/v1/query"
 
@@ -217,20 +232,17 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("build request")
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("prometheus request failed")
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("prometheus status")
 	}
 
 	var payload struct {
@@ -245,37 +257,31 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("decode prometheus response")
 	}
 
 	if payload.Status != "success" || payload.Data.ResultType != "vector" {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("invalid prometheus response")
 	}
 	if len(payload.Data.Result) == 0 {
-		c.lastDataSource = "mock"
-		return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+		return c.useMock("empty prometheus result")
 	}
 
 	usages := make([]PodCPUUsage, 0, len(payload.Data.Result))
 	for _, item := range payload.Data.Result {
 		podName := podNameFromMetric(item.Metric)
 		if podName == "" || len(item.Value) < 2 {
-			c.lastDataSource = "mock"
-			return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+			continue
 		}
 
 		valueRaw, ok := item.Value[1].(string)
 		if !ok {
-			c.lastDataSource = "mock"
-			return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+			continue
 		}
 
 		cpu, err := strconv.ParseFloat(valueRaw, 64)
 		if err != nil {
-			c.lastDataSource = "mock"
-			return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+			continue
 		}
 
 		usages = append(usages, PodCPUUsage{
@@ -284,12 +290,21 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 		})
 	}
 
+	if len(usages) == 0 {
+		return c.useMock("no usable samples")
+	}
+
 	c.lastDataSource = "prometheus"
+	c.lastFallbackReason = ""
 	return usages, nil
 }
 
 func (c *PrometheusCollector) DataSource() string {
 	return c.lastDataSource
+}
+
+func (c *PrometheusCollector) FallbackReason() string {
+	return c.lastFallbackReason
 }
 
 func podNameFromMetric(metric map[string]string) string {

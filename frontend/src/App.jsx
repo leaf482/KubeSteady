@@ -40,6 +40,10 @@ function App() {
   const rollbacks = snapshot?.Rollbacks ?? []
   const dataSource = (snapshot?.DataSource || 'unknown').toLowerCase()
   const isMockSource = dataSource === 'mock'
+  const isLatency = snapshot?.Signal === 'latency'
+  const highThreshold = isLatency ? 0.5 : 0.75
+  const lowThreshold = isLatency ? 0.2 : 0.25
+  const valueLabel = isLatency ? 'Avg latency (s)' : 'Avg CPU'
 
   const avgCPU = useMemo(() => {
     if (smoothed.length === 0) return 0
@@ -47,13 +51,13 @@ function App() {
   }, [smoothed])
 
   const highCPUCount = useMemo(
-    () => smoothed.filter((pod) => pod.CPU > 0.75).length,
-    [smoothed],
+    () => smoothed.filter((pod) => pod.CPU > highThreshold).length,
+    [smoothed, highThreshold],
   )
 
   const lowCPUCount = useMemo(
-    () => smoothed.filter((pod) => pod.CPU < 0.25).length,
-    [smoothed],
+    () => smoothed.filter((pod) => pod.CPU < lowThreshold).length,
+    [smoothed, lowThreshold],
   )
 
   const actionByPod = useMemo(() => {
@@ -99,7 +103,7 @@ function App() {
             <h2 className="mb-4 text-lg font-semibold">ResourceCore</h2>
             <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-full border-8 border-cyan-500/40 bg-slate-950">
               <div className="text-center">
-                <p className="text-sm text-slate-400">Avg CPU</p>
+                <p className="text-sm text-slate-400">{valueLabel}</p>
                 <p className="text-4xl font-bold text-cyan-300">{avgCPU.toFixed(3)}</p>
               </div>
             </div>
@@ -109,8 +113,8 @@ function App() {
             <h2 className="mb-4 text-lg font-semibold">MetricsPanel</h2>
             <ul className="space-y-2 text-sm">
               <li className="flex justify-between"><span>Total Pods</span><strong>{smoothed.length}</strong></li>
-              <li className="flex justify-between"><span>High CPU (&gt;0.75)</span><strong>{highCPUCount}</strong></li>
-              <li className="flex justify-between"><span>Low CPU (&lt;0.25)</span><strong>{lowCPUCount}</strong></li>
+              <li className="flex justify-between"><span>{isLatency ? 'High latency' : 'High CPU'} (&gt;{highThreshold})</span><strong>{highCPUCount}</strong></li>
+              <li className="flex justify-between"><span>{isLatency ? 'Low latency' : 'Low CPU'} (&lt;{lowThreshold})</span><strong>{lowCPUCount}</strong></li>
               <li className="flex justify-between"><span>Recommendations</span><strong>{recommendations.length}</strong></li>
               <li className="flex justify-between"><span>Validated</span><strong>{validated.length}</strong></li>
               <li className="flex justify-between"><span>Rollbacks</span><strong>{rollbacks.filter((r) => r.ShouldRollback).length}</strong></li>
@@ -125,7 +129,7 @@ function App() {
               <thead className="border-b border-slate-700 text-slate-400">
                 <tr>
                   <th className="px-3 py-2">Pod</th>
-                  <th className="px-3 py-2">Smoothed CPU</th>
+                  <th className="px-3 py-2">{isLatency ? 'Smoothed latency (s)' : 'Smoothed CPU'}</th>
                   <th className="px-3 py-2">Action</th>
                   <th className="px-3 py-2">Confidence</th>
                   <th className="px-3 py-2">Validation</th>

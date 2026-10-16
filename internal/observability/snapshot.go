@@ -11,8 +11,9 @@ import (
 type SystemSnapshot struct {
 	Timestamp time.Time
 
-	Pods int
+	Pods       int
 	DataSource string
+	Signal     string
 
 	SmoothedCPU []metrics.SmoothedCPUUsage
 
@@ -44,6 +45,7 @@ func cloneSnapshot(snapshot SystemSnapshot) SystemSnapshot {
 		Timestamp:       snapshot.Timestamp,
 		Pods:            snapshot.Pods,
 		DataSource:      snapshot.DataSource,
+		Signal:          snapshot.Signal,
 		SmoothedCPU:     append([]metrics.SmoothedCPUUsage(nil), snapshot.SmoothedCPU...),
 		Recommendations: append([]optimizer.Recommendation(nil), snapshot.Recommendations...),
 		Validated:       append([]optimizer.ValidatedRecommendation(nil), snapshot.Validated...),
