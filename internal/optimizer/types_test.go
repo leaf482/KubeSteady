@@ -27,7 +27,7 @@ func TestRecommendUsesLowConfidenceWithoutHistory(t *testing.T) {
 
 func TestRecommendLatencyThresholds(t *testing.T) {
 	aggregator := metrics.NewAggregator(time.Minute)
-	_ = aggregator.Aggregate([]metrics.PodCPUUsage{{Pod: "site", CPU: 0.6}})
+	_ = aggregator.Aggregate([]metrics.SignalSample{{Pod: "site", Value: 0.6}})
 
 	recs := Recommender{LatencyMode: true}.Recommend([]metrics.SmoothedCPUUsage{{
 		Pod: "site",

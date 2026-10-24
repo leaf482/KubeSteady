@@ -12,9 +12,9 @@ import (
 	"kubesteady/internal/config"
 )
 
-type PodCPUUsage struct {
-	Pod string
-	CPU float64
+type SignalSample struct {
+	Pod   string
+	Value float64
 }
 
 type WindowedCPUUsage struct {
@@ -64,7 +64,7 @@ func NewSmoother(alpha float64) *Smoother {
 	}
 }
 
-func (a *Aggregator) Aggregate(usages []PodCPUUsage) []WindowedCPUUsage {
+func (a *Aggregator) Aggregate(usages []SignalSample) []WindowedCPUUsage {
 	now := time.Now()
 	cutoff := now.Add(-a.window)
 
@@ -88,7 +88,7 @@ func (a *Aggregator) Aggregate(usages []PodCPUUsage) []WindowedCPUUsage {
 		}
 		a.data[usage.Pod] = append(a.data[usage.Pod], entry{
 			ts:  now,
-			cpu: usage.CPU,
+			cpu: usage.Value,
 		})
 	}
 
@@ -181,7 +181,7 @@ func computeVariance(entries []entry) float64 {
 
 // Collector defines the contract for future metrics collection integrations.
 type Collector interface {
-	Collect(ctx context.Context) ([]PodCPUUsage, error)
+	Collect(ctx context.Context) ([]SignalSample, error)
 }
 
 type PrometheusCollector struct {
@@ -192,10 +192,10 @@ type PrometheusCollector struct {
 	lastFallbackReason string
 }
 
-var mockPodCPUUsage = []PodCPUUsage{
-	{Pod: "pod-a", CPU: 0.62},
-	{Pod: "pod-b", CPU: 0.81},
-	{Pod: "pod-c", CPU: 0.21},
+var mockSignalSamples = []SignalSample{
+	{Pod: "pod-a", Value: 0.62},
+	{Pod: "pod-b", Value: 0.81},
+	{Pod: "pod-c", Value: 0.21},
 }
 
 func NewPrometheusCollector(cfg config.Config) *PrometheusCollector {
@@ -209,13 +209,13 @@ func NewPrometheusCollector(cfg config.Config) *PrometheusCollector {
 	}
 }
 
-func (c *PrometheusCollector) useMock(reason string) ([]PodCPUUsage, error) {
+func (c *PrometheusCollector) useMock(reason string) ([]SignalSample, error) {
 	c.lastDataSource = "mock"
 	c.lastFallbackReason = reason
-	return append([]PodCPUUsage(nil), mockPodCPUUsage...), nil
+	return append([]SignalSample(nil), mockSignalSamples...), nil
 }
 
-func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error) {
+func (c *PrometheusCollector) Collect(ctx context.Context) ([]SignalSample, error) {
 	if c.baseURL == "" {
 		return c.useMock("empty prometheus url")
 	}
@@ -267,7 +267,7 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 		return c.useMock("empty prometheus result")
 	}
 
-	usages := make([]PodCPUUsage, 0, len(payload.Data.Result))
+	usages := make([]SignalSample, 0, len(payload.Data.Result))
 	for _, item := range payload.Data.Result {
 		podName := podNameFromMetric(item.Metric)
 		if podName == "" || len(item.Value) < 2 {
@@ -279,14 +279,14 @@ func (c *PrometheusCollector) Collect(ctx context.Context) ([]PodCPUUsage, error
 			continue
 		}
 
-		cpu, err := strconv.ParseFloat(valueRaw, 64)
+		value, err := strconv.ParseFloat(valueRaw, 64)
 		if err != nil {
 			continue
 		}
 
-		usages = append(usages, PodCPUUsage{
-			Pod: podName,
-			CPU: cpu,
+		usages = append(usages, SignalSample{
+			Pod:   podName,
+			Value: value,
 		})
 	}
 

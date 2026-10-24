@@ -104,7 +104,7 @@ Deterministic fallback values:
 
 ## Metric-Agnostic Design
 
-The pipeline processes a generic numeric signal (`PodCPUUsage` as a historical naming artifact).
+The pipeline processes a generic numeric signal (`SignalSample`).
 
 - **CPU mode:** classic thresholds (`>0.75`, `<0.25`)
 - **Latency mode:** enabled when source is Prometheus and query includes `probe_duration_seconds`  
