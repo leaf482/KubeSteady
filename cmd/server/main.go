@@ -143,7 +143,7 @@ func main() {
 				Pods:            len(smoothed),
 				DataSource:      collector.DataSource(),
 				Signal:          signal,
-				SmoothedCPU:     smoothed,
+				SmoothedSignals: smoothed,
 				Recommendations: recs,
 				Validated:       cooled,
 				Rollbacks:       evals,

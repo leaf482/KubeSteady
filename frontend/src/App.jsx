@@ -34,7 +34,7 @@ function App() {
     }
   }, [])
 
-  const smoothed = snapshot?.SmoothedCPU ?? []
+  const smoothed = snapshot?.SmoothedSignals ?? []
   const recommendations = snapshot?.Recommendations ?? []
   const validated = snapshot?.Validated ?? []
   const rollbacks = snapshot?.Rollbacks ?? []

@@ -15,7 +15,7 @@ type SystemSnapshot struct {
 	DataSource string
 	Signal     string
 
-	SmoothedCPU []metrics.SmoothedSignal
+	SmoothedSignals []metrics.SmoothedSignal
 
 	Recommendations []optimizer.Recommendation
 	Validated       []optimizer.ValidatedRecommendation
@@ -46,7 +46,7 @@ func cloneSnapshot(snapshot SystemSnapshot) SystemSnapshot {
 		Pods:            snapshot.Pods,
 		DataSource:      snapshot.DataSource,
 		Signal:          snapshot.Signal,
-		SmoothedCPU:     append([]metrics.SmoothedSignal(nil), snapshot.SmoothedCPU...),
+		SmoothedSignals: append([]metrics.SmoothedSignal(nil), snapshot.SmoothedSignals...),
 		Recommendations: append([]optimizer.Recommendation(nil), snapshot.Recommendations...),
 		Validated:       append([]optimizer.ValidatedRecommendation(nil), snapshot.Validated...),
 		Rollbacks:       append([]optimizer.EvaluationResult(nil), snapshot.Rollbacks...),
