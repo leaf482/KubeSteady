@@ -22,7 +22,7 @@ It is designed for SRE-focused reliability engineering: predictable behavior, ex
 - Sliding window aggregation (5m) + EMA smoothing for stable decision signals
 - Confidence scoring from signal variance (stability-aware)
 - Safety validation layer and cooldown-based anti-flapping protection
-- Rollback signal evaluator based on pre/post metric comparison
+- Poll-to-poll degradation evaluator based on pre/post signal comparison
 - Snapshot API (`/snapshot`) for full system-state observability
 - React dashboard with live polling and source visibility (`PROMETHEUS` / `MOCK`)
 - Metric-agnostic signal handling (CPU-style and latency-style metrics)
@@ -86,7 +86,7 @@ Each tick (`poll_interval`) executes a fixed deterministic pipeline:
    Suppress rapid repeated actions to prevent flapping.
 
 7. **Evaluate**  
-   Compare pre/post smoothed signals and emit rollback intent signals (read-only).
+   Compare pre/post smoothed signals and mark poll-to-poll degradation (read-only; not an applied-action rollback).
 
 ## Fail-Safe Design
 
@@ -216,7 +216,7 @@ with Blackbox Exporter, then drive deterministic actions from latency trends:
 - high sustained latency -> `scale_up`
 - healthy/stable latency -> `no_op`
 
-All decisions, confidence, validation outcomes, and rollback signals are visible in `/snapshot` and the dashboard.
+All decisions, confidence, validation outcomes, and degradation signals are visible in `/snapshot` and the dashboard.
 
 ## Future Improvements
 
@@ -224,7 +224,7 @@ All decisions, confidence, validation outcomes, and rollback signals are visible
 - Multi-metric policy engine (latency + error rate + saturation)
 - Persistent state for cooldown/history across restarts
 - Policy/config profiles per workload class
-- Alerting hooks for rollback triggers and validation failures
+- Alerting hooks for degradation signals and validation failures
 
 ## Author / Closing
 

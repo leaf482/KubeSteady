@@ -89,12 +89,12 @@ func main() {
 			cooled := cooldown.ApplyCooldown(validated)
 
 			evals := make([]optimizer.EvaluationResult, 0)
-			rollbackTriggers := 0
+			degradedCount := 0
 			if len(previousSmoothed) > 0 {
 				evals = evaluator.Evaluate(previousSmoothed, smoothed)
 				for _, eval := range evals {
-					if eval.ShouldRollback {
-						rollbackTriggers++
+					if eval.Degraded {
+						degradedCount++
 					}
 				}
 			}
@@ -159,7 +159,7 @@ func main() {
 				"scale_up", scaleUp,
 				"scale_down", scaleDown,
 				"no_op", noOp,
-				"rollback_triggers", rollbackTriggers,
+				"degraded_signals", degradedCount,
 			)
 
 			previousSmoothed = append(previousSmoothed[:0], smoothed...)

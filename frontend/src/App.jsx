@@ -117,7 +117,7 @@ function App() {
               <li className="flex justify-between"><span>{isLatency ? 'Low latency' : 'Low CPU'} (&lt;{lowThreshold})</span><strong>{lowCPUCount}</strong></li>
               <li className="flex justify-between"><span>Recommendations</span><strong>{recommendations.length}</strong></li>
               <li className="flex justify-between"><span>Validated</span><strong>{validated.length}</strong></li>
-              <li className="flex justify-between"><span>Rollbacks</span><strong>{rollbacks.filter((r) => r.ShouldRollback).length}</strong></li>
+              <li className="flex justify-between"><span>Degraded</span><strong>{rollbacks.filter((r) => r.Degraded).length}</strong></li>
             </ul>
           </aside>
         </section>
@@ -133,7 +133,7 @@ function App() {
                   <th className="px-3 py-2">Action</th>
                   <th className="px-3 py-2">Confidence</th>
                   <th className="px-3 py-2">Validation</th>
-                  <th className="px-3 py-2">Rollback</th>
+                  <th className="px-3 py-2">Degraded</th>
                 </tr>
               </thead>
               <tbody>
@@ -147,7 +147,7 @@ function App() {
                       <td className="px-3 py-2">{action?.Action ?? 'no_op'}</td>
                       <td className="px-3 py-2">{(action?.Confidence ?? 0).toFixed(2)}</td>
                       <td className="px-3 py-2">{action?.ValidationReason || (action?.Valid ? 'valid' : 'n/a')}</td>
-                      <td className="px-3 py-2">{rollback?.ShouldRollback ? 'yes' : 'no'} ({rollback?.Reason ?? 'n/a'})</td>
+                      <td className="px-3 py-2">{rollback?.Degraded ? 'yes' : 'no'} ({rollback?.Reason ?? 'n/a'})</td>
                     </tr>
                   )
                 })}

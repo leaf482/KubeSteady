@@ -23,10 +23,11 @@ type ValidatedRecommendation struct {
 	ValidationReason string
 }
 
+// EvaluationResult is a poll-to-poll signal comparison, not an applied-action rollback.
 type EvaluationResult struct {
-	Pod            string
-	ShouldRollback bool
-	Reason         string
+	Pod      string
+	Degraded bool
+	Reason   string
 }
 
 type Recommender struct {
@@ -203,40 +204,40 @@ func (e Evaluator) Evaluate(pre []metrics.SmoothedSignal, post []metrics.Smoothe
 
 	results := make([]EvaluationResult, 0, len(pods))
 	for _, pod := range pods {
-		preCPU, hasPre := preByPod[pod]
-		postCPU, hasPost := postByPod[pod]
+		preValue, hasPre := preByPod[pod]
+		postValue, hasPost := postByPod[pod]
 
 		if !hasPre || !hasPost {
 			results = append(results, EvaluationResult{
-				Pod:            pod,
-				ShouldRollback: false,
-				Reason:         "missing metrics",
+				Pod:      pod,
+				Degraded: false,
+				Reason:   "missing metrics",
 			})
 			continue
 		}
 
-		if postCPU > preCPU*1.2 {
+		if postValue > preValue*1.2 {
 			results = append(results, EvaluationResult{
-				Pod:            pod,
-				ShouldRollback: true,
-				Reason:         "cpu increased",
+				Pod:      pod,
+				Degraded: true,
+				Reason:   "signal increased",
 			})
 			continue
 		}
 
-		if postCPU < preCPU*0.8 {
+		if postValue < preValue*0.8 {
 			results = append(results, EvaluationResult{
-				Pod:            pod,
-				ShouldRollback: false,
-				Reason:         "improved",
+				Pod:      pod,
+				Degraded: false,
+				Reason:   "improved",
 			})
 			continue
 		}
 
 		results = append(results, EvaluationResult{
-			Pod:            pod,
-			ShouldRollback: false,
-			Reason:         "no significant change",
+			Pod:      pod,
+			Degraded: false,
+			Reason:   "no significant change",
 		})
 	}
 
