@@ -9,9 +9,9 @@ import (
 
 func TestRecommendUsesLowConfidenceWithoutHistory(t *testing.T) {
 	aggregator := metrics.NewAggregator(time.Minute)
-	recs := Recommender{}.Recommend([]metrics.SmoothedCPUUsage{{
-		Pod: "pod-a",
-		CPU: 0.9,
+	recs := Recommender{}.Recommend([]metrics.SmoothedSignal{{
+		Pod:   "pod-a",
+		Value: 0.9,
 	}}, aggregator)
 
 	if len(recs) != 1 {
@@ -29,9 +29,9 @@ func TestRecommendLatencyThresholds(t *testing.T) {
 	aggregator := metrics.NewAggregator(time.Minute)
 	_ = aggregator.Aggregate([]metrics.SignalSample{{Pod: "site", Value: 0.6}})
 
-	recs := Recommender{LatencyMode: true}.Recommend([]metrics.SmoothedCPUUsage{{
-		Pod: "site",
-		CPU: 0.6,
+	recs := Recommender{LatencyMode: true}.Recommend([]metrics.SmoothedSignal{{
+		Pod:   "site",
+		Value: 0.6,
 	}}, aggregator)
 
 	if recs[0].Action != "scale_up" || recs[0].Reason != "high latency" {

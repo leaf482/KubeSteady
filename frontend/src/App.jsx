@@ -47,16 +47,16 @@ function App() {
 
   const avgCPU = useMemo(() => {
     if (smoothed.length === 0) return 0
-    return smoothed.reduce((sum, pod) => sum + pod.CPU, 0) / smoothed.length
+    return smoothed.reduce((sum, pod) => sum + pod.Value, 0) / smoothed.length
   }, [smoothed])
 
   const highCPUCount = useMemo(
-    () => smoothed.filter((pod) => pod.CPU > highThreshold).length,
+    () => smoothed.filter((pod) => pod.Value > highThreshold).length,
     [smoothed, highThreshold],
   )
 
   const lowCPUCount = useMemo(
-    () => smoothed.filter((pod) => pod.CPU < lowThreshold).length,
+    () => smoothed.filter((pod) => pod.Value < lowThreshold).length,
     [smoothed, lowThreshold],
   )
 
@@ -143,7 +143,7 @@ function App() {
                   return (
                     <tr key={pod.Pod} className="border-b border-slate-800">
                       <td className="px-3 py-2">{pod.Pod}</td>
-                      <td className="px-3 py-2">{pod.CPU.toFixed(4)}</td>
+                      <td className="px-3 py-2">{pod.Value.toFixed(4)}</td>
                       <td className="px-3 py-2">{action?.Action ?? 'no_op'}</td>
                       <td className="px-3 py-2">{(action?.Confidence ?? 0).toFixed(2)}</td>
                       <td className="px-3 py-2">{action?.ValidationReason || (action?.Valid ? 'valid' : 'n/a')}</td>

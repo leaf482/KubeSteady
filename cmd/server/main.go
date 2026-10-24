@@ -43,7 +43,7 @@ func main() {
 	ticker := time.NewTicker(cfg.PollInterval)
 	defer ticker.Stop()
 
-	var previousSmoothed []metrics.SmoothedCPUUsage
+	var previousSmoothed []metrics.SmoothedSignal
 
 	logger.Info("server starting")
 	logger.Info("configuration loaded", "prometheus_url", cfg.PrometheusURL, "prometheus_query", cfg.PrometheusQuery, "poll_interval", cfg.PollInterval.String())
@@ -120,22 +120,22 @@ func main() {
 				lowThreshold = 0.2
 			}
 
-			var totalCPU float64
+			var totalValue float64
 			highCount := 0
 			lowCount := 0
 			for _, usage := range smoothed {
-				totalCPU += usage.CPU
-				if usage.CPU > highThreshold {
+				totalValue += usage.Value
+				if usage.Value > highThreshold {
 					highCount++
 				}
-				if usage.CPU < lowThreshold {
+				if usage.Value < lowThreshold {
 					lowCount++
 				}
 			}
 
-			avgCPU := 0.0
+			avgValue := 0.0
 			if len(smoothed) > 0 {
-				avgCPU = totalCPU / float64(len(smoothed))
+				avgValue = totalValue / float64(len(smoothed))
 			}
 
 			snapshots.Update(observability.SystemSnapshot{
@@ -153,7 +153,7 @@ func main() {
 				"tick complete",
 				"pods_processed", len(smoothed),
 				"signal", signal,
-				"avg_value", avgCPU,
+				"avg_value", avgValue,
 				"high_signal", highCount,
 				"low_signal", lowCount,
 				"scale_up", scaleUp,

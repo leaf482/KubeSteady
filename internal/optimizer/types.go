@@ -51,7 +51,7 @@ func NewCooldownManager(window time.Duration) *CooldownManager {
 	}
 }
 
-func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *metrics.Aggregator) []Recommendation {
+func (r Recommender) Recommend(usages []metrics.SmoothedSignal, aggregator *metrics.Aggregator) []Recommendation {
 	recommendations := make([]Recommendation, 0, len(usages))
 	variances := map[string]float64{}
 	if aggregator != nil {
@@ -63,10 +63,10 @@ func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *me
 		reason := "within threshold"
 
 		if r.LatencyMode {
-			if usage.CPU > 0.5 {
+			if usage.Value > 0.5 {
 				action = "scale_up"
 				reason = "high latency"
-			} else if usage.CPU < 0.2 {
+			} else if usage.Value < 0.2 {
 				action = "no_op"
 				reason = "latency healthy"
 			} else {
@@ -74,10 +74,10 @@ func (r Recommender) Recommend(usages []metrics.SmoothedCPUUsage, aggregator *me
 				reason = "latency stable"
 			}
 		} else {
-			if usage.CPU > 0.75 {
+			if usage.Value > 0.75 {
 				action = "scale_up"
 				reason = "cpu high"
-			} else if usage.CPU < 0.25 {
+			} else if usage.Value < 0.25 {
 				action = "scale_down"
 				reason = "cpu low"
 			}
@@ -174,7 +174,7 @@ func (c *CooldownManager) ApplyCooldown(recs []ValidatedRecommendation) []Valida
 	return result
 }
 
-func (e Evaluator) Evaluate(pre []metrics.SmoothedCPUUsage, post []metrics.SmoothedCPUUsage) []EvaluationResult {
+func (e Evaluator) Evaluate(pre []metrics.SmoothedSignal, post []metrics.SmoothedSignal) []EvaluationResult {
 	preByPod := make(map[string]float64, len(pre))
 	postByPod := make(map[string]float64, len(post))
 	podSet := make(map[string]struct{}, len(pre)+len(post))
@@ -183,7 +183,7 @@ func (e Evaluator) Evaluate(pre []metrics.SmoothedCPUUsage, post []metrics.Smoot
 		if usage.Pod == "" {
 			continue
 		}
-		preByPod[usage.Pod] = usage.CPU
+		preByPod[usage.Pod] = usage.Value
 		podSet[usage.Pod] = struct{}{}
 	}
 
@@ -191,7 +191,7 @@ func (e Evaluator) Evaluate(pre []metrics.SmoothedCPUUsage, post []metrics.Smoot
 		if usage.Pod == "" {
 			continue
 		}
-		postByPod[usage.Pod] = usage.CPU
+		postByPod[usage.Pod] = usage.Value
 		podSet[usage.Pod] = struct{}{}
 	}
 

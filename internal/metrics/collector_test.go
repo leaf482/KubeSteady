@@ -65,12 +65,12 @@ func TestCollectFallsBackWhenResultIsEmpty(t *testing.T) {
 
 func TestSmoothDropsDepartedPods(t *testing.T) {
 	smoother := NewSmoother(0.5)
-	first := smoother.Smooth([]WindowedCPUUsage{{Pod: "a", AvgCPU: 0.4}, {Pod: "b", AvgCPU: 0.8}})
+	first := smoother.Smooth([]WindowedSignal{{Pod: "a", AvgValue: 0.4}, {Pod: "b", AvgValue: 0.8}})
 	if len(first) != 2 {
 		t.Fatalf("first len = %d", len(first))
 	}
 
-	second := smoother.Smooth([]WindowedCPUUsage{{Pod: "a", AvgCPU: 0.2}})
+	second := smoother.Smooth([]WindowedSignal{{Pod: "a", AvgValue: 0.2}})
 	if len(second) != 1 || second[0].Pod != "a" {
 		t.Fatalf("second = %+v", second)
 	}

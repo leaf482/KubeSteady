@@ -17,14 +17,14 @@ type SignalSample struct {
 	Value float64
 }
 
-type WindowedCPUUsage struct {
-	Pod    string
-	AvgCPU float64
+type WindowedSignal struct {
+	Pod      string
+	AvgValue float64
 }
 
-type SmoothedCPUUsage struct {
-	Pod string
-	CPU float64
+type SmoothedSignal struct {
+	Pod   string
+	Value float64
 }
 
 type Aggregator struct {
@@ -38,8 +38,8 @@ type Smoother struct {
 }
 
 type entry struct {
-	ts  time.Time
-	cpu float64
+	ts    time.Time
+	value float64
 }
 
 func NewAggregator(window time.Duration) *Aggregator {
@@ -64,7 +64,7 @@ func NewSmoother(alpha float64) *Smoother {
 	}
 }
 
-func (a *Aggregator) Aggregate(usages []SignalSample) []WindowedCPUUsage {
+func (a *Aggregator) Aggregate(usages []SignalSample) []WindowedSignal {
 	now := time.Now()
 	cutoff := now.Add(-a.window)
 
@@ -87,8 +87,8 @@ func (a *Aggregator) Aggregate(usages []SignalSample) []WindowedCPUUsage {
 			continue
 		}
 		a.data[usage.Pod] = append(a.data[usage.Pod], entry{
-			ts:  now,
-			cpu: usage.Value,
+			ts:    now,
+			value: usage.Value,
 		})
 	}
 
@@ -98,7 +98,7 @@ func (a *Aggregator) Aggregate(usages []SignalSample) []WindowedCPUUsage {
 	}
 	sort.Strings(pods)
 
-	out := make([]WindowedCPUUsage, 0, len(pods))
+	out := make([]WindowedSignal, 0, len(pods))
 	for _, pod := range pods {
 		points := a.data[pod]
 		if len(points) == 0 {
@@ -106,11 +106,11 @@ func (a *Aggregator) Aggregate(usages []SignalSample) []WindowedCPUUsage {
 		}
 		var total float64
 		for _, p := range points {
-			total += p.cpu
+			total += p.value
 		}
-		out = append(out, WindowedCPUUsage{
-			Pod:    pod,
-			AvgCPU: total / float64(len(points)),
+		out = append(out, WindowedSignal{
+			Pod:      pod,
+			AvgValue: total / float64(len(points)),
 		})
 	}
 
@@ -125,14 +125,14 @@ func (a *Aggregator) VarianceByPod() map[string]float64 {
 	return variances
 }
 
-func (s *Smoother) Smooth(usages []WindowedCPUUsage) []SmoothedCPUUsage {
-	out := make([]SmoothedCPUUsage, 0, len(usages))
+func (s *Smoother) Smooth(usages []WindowedSignal) []SmoothedSignal {
+	out := make([]SmoothedSignal, 0, len(usages))
 	for _, usage := range usages {
 		if usage.Pod == "" {
 			continue
 		}
 
-		current := usage.AvgCPU
+		current := usage.AvgValue
 		smoothed := current
 
 		if prev, ok := s.state[usage.Pod]; ok {
@@ -140,9 +140,9 @@ func (s *Smoother) Smooth(usages []WindowedCPUUsage) []SmoothedCPUUsage {
 		}
 
 		s.state[usage.Pod] = smoothed
-		out = append(out, SmoothedCPUUsage{
-			Pod: usage.Pod,
-			CPU: smoothed,
+		out = append(out, SmoothedSignal{
+			Pod:   usage.Pod,
+			Value: smoothed,
 		})
 	}
 
@@ -166,13 +166,13 @@ func computeVariance(entries []entry) float64 {
 
 	var sum float64
 	for _, point := range entries {
-		sum += point.cpu
+		sum += point.value
 	}
 	mean := sum / float64(len(entries))
 
 	var squaredDiffSum float64
 	for _, point := range entries {
-		diff := point.cpu - mean
+		diff := point.value - mean
 		squaredDiffSum += diff * diff
 	}
 
